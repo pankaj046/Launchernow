@@ -2,6 +2,7 @@ package sharma.pankaj.launchernow.adapter;
 
 import android.content.Context;
 import android.content.Intent;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,7 +21,7 @@ import sharma.pankaj.launchernow.model.HomeModel;
 
 public class HomeAdapter extends RecyclerView.Adapter<HomeAdapter.ViewHolder> {
 
-    private static Context context;
+    private Context context;
     private List<HomeModel> list;
     private LayoutInflater inflater;
 
@@ -38,6 +39,7 @@ public class HomeAdapter extends RecyclerView.Adapter<HomeAdapter.ViewHolder> {
                 LinearLayout.LayoutParams.WRAP_CONTENT);
         LinearLayout view = new LinearLayout(context);
         view.setOrientation(LinearLayout.VERTICAL);
+        view.setGravity(Gravity.CENTER_HORIZONTAL);
         viewParams.setMargins(16, 16, 16, 16);
         view.setLayoutParams(viewParams);
         return new ViewHolder(view);
@@ -58,9 +60,12 @@ public class HomeAdapter extends RecyclerView.Adapter<HomeAdapter.ViewHolder> {
     public int getItemCount() {
         return list.size();
     }
+    public void filterList(List<HomeModel> filteredList) {
+        list = filteredList;
+        notifyDataSetChanged();
+    }
 
-
-    public static class ViewHolder extends RecyclerView.ViewHolder {
+    public class ViewHolder extends RecyclerView.ViewHolder {
 
         public LinearLayout view;
         public ImageView imageView;
@@ -80,10 +85,15 @@ public class HomeAdapter extends RecyclerView.Adapter<HomeAdapter.ViewHolder> {
             imageView.getLayoutParams().width = 70;
             view.addView(imageView);
             textView = new TextView(context);
+            LinearLayout.LayoutParams tv = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.MATCH_PARENT);
             textView.setTextSize((float) 12.0);
             textView.setMaxLines(1);
+            textView.setGravity(Gravity.CENTER_HORIZONTAL);
             textView.setTextColor(context.getResources().getColor(R.color.white));
-            textView.setLayoutParams(params);
+            textView.setLayoutParams(tv);
+            textView.getLayoutParams().height = 23;
             view.addView(textView);
         }
     }

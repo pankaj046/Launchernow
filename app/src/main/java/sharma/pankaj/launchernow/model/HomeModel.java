@@ -37,4 +37,11 @@ public class HomeModel {
     public void setIcon(Drawable icon) {
         this.icon = icon;
     }
+
+    @Override
+    public String toString() {
+        return "HomeModel{" +
+                "name=" + name +
+                '}';
+    }
 }

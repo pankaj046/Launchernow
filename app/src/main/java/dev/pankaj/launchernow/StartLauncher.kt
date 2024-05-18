@@ -278,10 +278,17 @@ class StartLauncher : ComponentActivity() {
     }
 
     private fun openUninstallWindow(context: Context, packageName: String) {
-        val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE)
-        intent.data = Uri.parse("package:$packageName")
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val intent = Intent(Intent.ACTION_DELETE)
+            intent.data = Uri.parse("package:$packageName")
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } else {
+            val intent = Intent("android.intent.action.UNINSTALL_PACKAGE")
+            intent.putExtra("android.intent.extra.PACKAGE_NAME", packageName)
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        }
     }
 }
 

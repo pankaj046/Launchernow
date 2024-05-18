@@ -26,6 +26,11 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,14 +52,7 @@ class StartLauncher : ComponentActivity() {
         val packageManager = packageManager
         val intent = Intent(Intent.ACTION_MAIN, null)
         intent.addCategory(Intent.CATEGORY_LAUNCHER)
-        val apps = packageManager.queryIntentActivities(intent, 0)
-            .map { app ->
-                AppInfo(
-                    app.loadLabel(packageManager).toString(),
-                    app.loadIcon(packageManager),
-                    app.activityInfo.packageName
-                )
-        }
+        val apps = runBlocking { loadApps(packageManager) }
 
         timeBatteryTextView = TextView(this).apply {
             gravity = Gravity.CENTER
@@ -107,7 +105,7 @@ class StartLauncher : ComponentActivity() {
         layout.addView(recyclerView)
 
         recyclerView.adapter = adapter
-        adapter.updateData(apps)
+        adapter.updateData(apps.sortedBy { it.name })
 
         handler = Handler(Looper.getMainLooper())
         startUpdatingTimeAndBattery()
@@ -167,6 +165,26 @@ class StartLauncher : ComponentActivity() {
     private fun Int.dpToPx(): Int {
         val scale = resources.displayMetrics.density
         return (this * scale + 0.5f).toInt()
+    }
+
+
+    private suspend fun loadApps(packageManager: PackageManager): List<AppInfo> = coroutineScope {
+        val intent = Intent(Intent.ACTION_MAIN, null).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+
+        val appsDeferred = packageManager.queryIntentActivities(intent, 0)
+            .map { app ->
+                async(Dispatchers.Default) {
+                    AppInfo(
+                        app.loadLabel(packageManager).toString(),
+                        app.loadIcon(packageManager),
+                        app.activityInfo.packageName
+                    )
+                }
+            }
+
+        appsDeferred.awaitAll()
     }
 
 }

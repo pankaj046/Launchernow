@@ -9,7 +9,8 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
 class AppAdapter(
-    private val onClick: (String) -> Unit
+    private val onClick: (String) -> Unit,
+    private val onLongPress: (String) -> Unit
 ) : RecyclerView.Adapter<AppAdapter.AppViewHolder>() {
    var apps: List<AppInfo> = mutableListOf()
 
@@ -38,6 +39,10 @@ class AppAdapter(
         init {
             itemView.setOnClickListener {
                 onClick(apps[absoluteAdapterPosition].packageName)
+            }
+            itemView.setOnLongClickListener {
+                onLongPress(apps[absoluteAdapterPosition].packageName)
+                true
             }
         }
 

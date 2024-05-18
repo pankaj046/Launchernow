@@ -4,10 +4,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
@@ -20,10 +22,15 @@ import android.text.TextWatcher
 import android.text.style.AbsoluteSizeSpan
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
@@ -34,14 +41,21 @@ import kotlinx.coroutines.runBlocking
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.provider.Settings
+
 
 class StartLauncher : ComponentActivity() {
 
     private lateinit var timeBatteryTextView: TextView
-    private lateinit var handler: Handler
+    private var handler: Handler?=null
+
+    var popupWindow : PopupWindow?=null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+
+
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -65,13 +79,17 @@ class StartLauncher : ComponentActivity() {
             setTypeface(typeface, Typeface.BOLD)
         }
         layout.addView(timeBatteryTextView)
-
-        val adapter = AppAdapter { packageName ->
+        val adapter = AppAdapter({ packageName ->
             val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
             if (launchIntent != null) {
                 startActivity(launchIntent)
             }
-        }
+        }, { packageName ->
+            showPopupMenu(layout, packageName)
+        })
+
+        val searchIcon = ContextCompat.getDrawable(this, R.drawable.ic_search_24)
+        searchIcon?.setBounds(0, 0, searchIcon.intrinsicWidth, searchIcon.intrinsicHeight)
 
         val searchEditText = EditText(this).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -81,10 +99,14 @@ class StartLauncher : ComponentActivity() {
                 setMargins(40.dpToPx(), 10.dpToPx(), 40.dpToPx(), 10.dpToPx())
             }
             hint = "Search..."
-            gravity = Gravity.CENTER
+            gravity = Gravity.START
             setTextColor(Color.WHITE)
             setHintTextColor(Color.WHITE)
             setBackgroundResource(android.R.color.transparent)
+            setCompoundDrawables(searchIcon, null, null, null)
+            maxLines = 1
+            compoundDrawablePadding = 16.dpToPx()
+            setBackgroundResource(R.drawable.edit_text_bg)
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
@@ -95,7 +117,11 @@ class StartLauncher : ComponentActivity() {
                     adapter.updateData(filteredApps)
                 }
 
-                override fun afterTextChanged(s: Editable?) {}
+                override fun afterTextChanged(s: Editable?) {
+                    s?.let { if (s.toString().isEmpty()){
+                        this@apply.clearFocus()
+                    } }
+                }
             })
         }
         layout.addView(searchEditText)
@@ -115,10 +141,10 @@ class StartLauncher : ComponentActivity() {
 
 
     private fun startUpdatingTimeAndBattery() {
-        handler.post(object : Runnable {
+        handler?.post(object : Runnable {
             override fun run() {
                 updateTimeAndBattery()
-                handler.postDelayed(this, 1000)
+                handler?.postDelayed(this, 1000)
             }
         })
     }
@@ -159,7 +185,7 @@ class StartLauncher : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(batteryReceiver)
-        handler.removeCallbacksAndMessages(null)
+        handler?.removeCallbacksAndMessages(null)
     }
 
     private fun Int.dpToPx(): Int {
@@ -187,6 +213,76 @@ class StartLauncher : ComponentActivity() {
         appsDeferred.awaitAll()
     }
 
+
+    private fun createPopupMenuView(context: Context, info: () -> Unit, uninstall: () -> Unit): LinearLayout {
+        val container = LinearLayout(context)
+        val params = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        container.orientation = LinearLayout.VERTICAL
+        container.layoutParams = params
+        container.setBackgroundColor(Color.TRANSPARENT)
+        container.setPadding(40, 20, 40, 20)
+
+        fun addMenuItem(text: String, onClick: () -> Unit) {
+            val menuItem = TextView(context)
+            menuItem.text = text
+            menuItem.setTextColor(Color.WHITE)
+            menuItem.setPadding(20, 20, 20, 20)
+
+            menuItem.setOnClickListener { onClick() }
+            container.addView(menuItem)
+        }
+
+        addMenuItem("App Info") {
+            info()
+        }
+
+        addMenuItem("Uninstall") {
+            uninstall()
+        }
+        val shape = GradientDrawable()
+        shape.shape = GradientDrawable.RECTANGLE
+        shape.setColor(ContextCompat.getColor(this, R.color.black_transparent))
+        shape.cornerRadius = 8f
+        container.background = shape
+        return container
+    }
+
+    private fun showPopupMenu(rootView: View, packageName: String,) {
+        val popupView = createPopupMenuView(rootView.context,
+        {
+            showAppInfo(rootView.context, packageName)
+            popupWindow?.dismiss()
+        }, {
+            openUninstallWindow(rootView.context, packageName)
+            popupWindow?.dismiss()
+        })
+        popupWindow = PopupWindow(
+            popupView,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        popupWindow?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        popupWindow?.isOutsideTouchable = true
+        popupWindow?.isFocusable = true
+        popupWindow?.showAtLocation(rootView, Gravity.START, 20, 0)
+    }
+
+    private fun showAppInfo(context: Context, packageName: String) {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        intent.data = Uri.parse("package:$packageName")
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
+
+    private fun openUninstallWindow(context: Context, packageName: String) {
+        val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE)
+        intent.data = Uri.parse("package:$packageName")
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
 }
 
 

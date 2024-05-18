@@ -49,7 +49,7 @@ class StartLauncher : ComponentActivity() {
     private lateinit var timeBatteryTextView: TextView
     private var handler: Handler?=null
 
-    var popupWindow : PopupWindow?=null
+    private var popupWindow : PopupWindow?=null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -96,7 +96,7 @@ class StartLauncher : ComponentActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(40.dpToPx(), 10.dpToPx(), 40.dpToPx(), 10.dpToPx())
+                setMargins(20.dpToPx(), 10.dpToPx(), 20.dpToPx(), 10.dpToPx())
             }
             hint = "Search..."
             gravity = Gravity.START

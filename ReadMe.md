@@ -8,8 +8,7 @@
 - **App Info and Uninstall:** Provide option when use click on Long Press App info and uninstall
 
 ## Screenshots:
-
-![Screenshot 1]([/path/to/screenshot1.png](https://raw.githubusercontent.com/pankaj046/Launchernow/main/demo.jpg))
+  <img src="https://raw.githubusercontent.com/pankaj046/Launchernow/main/demo.jpg" width="200" alt="accessibility text">
 
 ## How to Use:
 

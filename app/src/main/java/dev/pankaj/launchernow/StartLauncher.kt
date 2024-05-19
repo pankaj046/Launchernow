@@ -76,7 +76,6 @@ class StartLauncher : ComponentActivity() {
         timeBatteryTextView = TextView(this).apply {
             gravity = Gravity.CENTER
             textSize = 20f
-            text = "Loading..."
             val maxWidthHeight = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 100f, resources.displayMetrics).toInt()
             maxWidth = maxWidthHeight
             maxHeight = maxWidthHeight
@@ -293,7 +292,7 @@ class StartLauncher : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(batteryReceiver)
-        handler?.removeCallbacksAndMessages(null)
+        handler.removeCallbacksAndMessages(null)
     }
 
     private fun Int.dpToPx(): Int {

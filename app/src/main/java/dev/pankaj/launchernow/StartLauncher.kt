@@ -41,6 +41,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import android.provider.Settings
+import androidx.core.view.marginTop
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -48,11 +49,12 @@ import kotlinx.coroutines.launch
 class StartLauncher : ComponentActivity() {
 
     private lateinit var timeBatteryTextView: TextView
-    private var handler: Handler?=null
+    private var handler = Handler(Looper.getMainLooper())
 
     private var popupWindow : PopupWindow?=null
     private var apps: List<AppInfo> = mutableListOf()
     private var adapter : AppAdapter?=null
+    private var searchEditText :EditText ?= null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,9 +81,16 @@ class StartLauncher : ComponentActivity() {
             maxHeight = maxWidthHeight
             setTextColor(Color.WHITE)
             setTypeface(typeface, Typeface.BOLD)
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            params.setMargins(0, 80, 0, 0)
+            layoutParams = params
         }
         layout.addView(timeBatteryTextView)
         adapter = AppAdapter({ packageName ->
+            searchEditText?.setText("")
             val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
             if (launchIntent != null) {
                 startActivity(launchIntent)
@@ -93,7 +102,7 @@ class StartLauncher : ComponentActivity() {
         val searchIcon = ContextCompat.getDrawable(this, R.drawable.ic_search_24)
         searchIcon?.setBounds(0, 0, searchIcon.intrinsicWidth, searchIcon.intrinsicHeight)
 
-        val searchEditText = EditText(this).apply {
+        searchEditText = EditText(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -126,7 +135,9 @@ class StartLauncher : ComponentActivity() {
                 }
             })
         }
-        layout.addView(searchEditText)
+        searchEditText?.let {
+            layout.addView(it)
+        }
 
         val recyclerView = RecyclerView(this).apply {
             isHorizontalFadingEdgeEnabled = true
@@ -136,7 +147,6 @@ class StartLauncher : ComponentActivity() {
         recyclerView.layoutManager = LinearLayoutManager(this)
         layout.addView(recyclerView)
         recyclerView.adapter = adapter
-        handler = Handler(Looper.getMainLooper())
         startUpdatingTimeAndBattery()
         val batteryIntentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         registerReceiver(batteryReceiver, batteryIntentFilter)
@@ -149,7 +159,7 @@ class StartLauncher : ComponentActivity() {
         }
         CoroutineScope(Dispatchers.IO).launch {
             apps =  loadApps(packageManager)
-            handler?.post {
+            handler.post {
                 adapter?.updateData(apps)
             }
         }
@@ -157,22 +167,29 @@ class StartLauncher : ComponentActivity() {
 
 
     private fun startUpdatingTimeAndBattery() {
-        handler?.post(object : Runnable {
+        handler.post(object : Runnable {
             override fun run() {
                 updateTimeAndBattery()
-                handler?.postDelayed(this, 1000)
+                handler.postDelayed(this, 1000)
             }
         })
     }
 
     private fun updateTimeAndBattery() {
-        val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        val currentDate = Date()
+        val dateFormat = SimpleDateFormat("EEE, MMM d", Locale.getDefault())
+        val formattedDate = dateFormat.format(currentDate)
+
+        val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
+        val formattedTime = timeFormat.format(currentDate)
+        val formattedDateTime = "$formattedDate, ${formattedTime.uppercase()}"
+
         val batteryPercentage = getBatteryPercentage()
-        val timeSpannable = SpannableString(currentTime)
+        val timeSpannable = SpannableString(formattedDateTime)
         val batterySpannable = SpannableString("$batteryPercentage%")
         val timeSize = resources.getDimensionPixelSize(R.dimen.time_text_size)
         val batterySize = resources.getDimensionPixelSize(R.dimen.battery_text_size)
-        timeSpannable.setSpan(AbsoluteSizeSpan(timeSize), 0, currentTime.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        timeSpannable.setSpan(AbsoluteSizeSpan(timeSize), 0, formattedDateTime.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         batterySpannable.setSpan(AbsoluteSizeSpan(batterySize), 0, batterySpannable.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         val timeBatteryText = TextUtils.concat(timeSpannable, "\n", batterySpannable)
         timeBatteryTextView.text = timeBatteryText

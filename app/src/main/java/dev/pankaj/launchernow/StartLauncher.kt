@@ -42,6 +42,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import android.provider.Settings
+import androidx.core.util.TypedValueCompat.dpToPx
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
 
 
 class StartLauncher : ComponentActivity() {
@@ -50,10 +54,12 @@ class StartLauncher : ComponentActivity() {
     private var handler: Handler?=null
 
     private var popupWindow : PopupWindow?=null
+    private var apps: List<AppInfo> = mutableListOf()
+    private var adapter : AppAdapter?=null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
 
 
         val layout = LinearLayout(this).apply {
@@ -66,7 +72,6 @@ class StartLauncher : ComponentActivity() {
         val packageManager = packageManager
         val intent = Intent(Intent.ACTION_MAIN, null)
         intent.addCategory(Intent.CATEGORY_LAUNCHER)
-        val apps = runBlocking { loadApps(packageManager) }
 
         timeBatteryTextView = TextView(this).apply {
             gravity = Gravity.CENTER
@@ -79,7 +84,7 @@ class StartLauncher : ComponentActivity() {
             setTypeface(typeface, Typeface.BOLD)
         }
         layout.addView(timeBatteryTextView)
-        val adapter = AppAdapter({ packageName ->
+        adapter = AppAdapter({ packageName ->
             val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
             if (launchIntent != null) {
                 startActivity(launchIntent)
@@ -114,7 +119,7 @@ class StartLauncher : ComponentActivity() {
                     val filteredApps = apps.filter { appInfo ->
                         appInfo.name.contains(s.toString(), ignoreCase = true)
                     }
-                    adapter.updateData(filteredApps)
+                    adapter?.updateData(filteredApps)
                 }
 
                 override fun afterTextChanged(s: Editable?) {
@@ -126,17 +131,31 @@ class StartLauncher : ComponentActivity() {
         }
         layout.addView(searchEditText)
 
-        val recyclerView = RecyclerView(this)
+        val recyclerView = RecyclerView(this).apply {
+            isHorizontalFadingEdgeEnabled = true
+            isVerticalFadingEdgeEnabled = true
+            setFadingEdgeLength(50.dpToPx())
+        }
         recyclerView.layoutManager = LinearLayoutManager(this)
         layout.addView(recyclerView)
-
         recyclerView.adapter = adapter
-        adapter.updateData(apps.sortedBy { it.name })
-
         handler = Handler(Looper.getMainLooper())
         startUpdatingTimeAndBattery()
         val batteryIntentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         registerReceiver(batteryReceiver, batteryIntentFilter)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (apps.isNotEmpty()){
+            adapter?.updateData(apps)
+        }
+        CoroutineScope(Dispatchers.IO).launch {
+            apps =  loadApps(packageManager)
+            handler?.post {
+                adapter?.updateData(apps)
+            }
+        }
     }
 
 

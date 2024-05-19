@@ -29,7 +29,7 @@ class AppAdapter(
 
     fun updateData(apps: List<AppInfo>) {
         val diffResult = DiffUtil.calculateDiff(AppsDiffCallback(this.apps, apps))
-        this.apps = apps
+        this.apps = apps.sortedBy { it.name }
         diffResult.dispatchUpdatesTo(this)
     }
 

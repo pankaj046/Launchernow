@@ -1,5 +1,7 @@
 package dev.pankaj.launchernow
 
+import android.app.Activity
+import android.app.role.RoleManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -11,6 +13,7 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -32,6 +35,7 @@ import android.widget.PopupWindow
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -208,6 +212,7 @@ class StartLauncher : ComponentActivity() {
         startUpdatingTimeAndBattery()
         val batteryIntentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         registerReceiver(batteryReceiver, batteryIntentFilter)
+        showLauncherSelection()
     }
 
     private fun getPhoneCallerPackageName(): String? {
@@ -396,6 +401,28 @@ class StartLauncher : ComponentActivity() {
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         }
+    }
+
+    private fun showLauncherSelection() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q){
+            (getSystemService(Context.ROLE_SERVICE) as? RoleManager)?.let {
+                if (it.isRoleAvailable(RoleManager.ROLE_HOME) &&
+                    !it.isRoleHeld(RoleManager.ROLE_HOME)
+                ) {
+                    val intent = it.createRequestRoleIntent(RoleManager.ROLE_HOME)
+                    startForResult.launch(intent)
+                }
+            }
+        }else{
+            val intent = Intent(Settings.ACTION_HOME_SETTINGS)
+            startActivity(intent)
+        }
+    }
+
+    private val startForResult = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { activityResult ->
+        if (activityResult.resultCode == Activity.RESULT_OK) { }
     }
 }
 

@@ -14,6 +14,7 @@ import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.text.Editable
 import android.text.Spannable
 import android.text.SpannableString
@@ -25,25 +26,25 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
+import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import android.provider.Settings
-import androidx.core.view.marginTop
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 
 class StartLauncher : ComponentActivity() {
@@ -145,11 +146,85 @@ class StartLauncher : ComponentActivity() {
             setFadingEdgeLength(50.dpToPx())
         }
         recyclerView.layoutManager = LinearLayoutManager(this)
-        layout.addView(recyclerView)
+
+        val recyclerViewContainer = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            0,
+            1f
+        )
+        layout.addView(recyclerView, recyclerViewContainer)
         recyclerView.adapter = adapter
+        val shortcut = RelativeLayout(this).apply {
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            params.setMargins(40, 20, 40, 20)
+            layoutParams = params
+        }
+        val phoneLayout = ImageView(this).apply {
+            id = View.generateViewId()
+            setImageResource(R.drawable.ic_call_24)
+            layoutParams = RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.WRAP_CONTENT,
+                RelativeLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                addRule(RelativeLayout.ALIGN_PARENT_START)
+                addRule(RelativeLayout.CENTER_VERTICAL)
+                setMargins(16, 16, 16, 16)
+            }
+        }
+        phoneLayout.setOnClickListener {
+            getPhoneCallerPackageName()?.let {pName->
+                packageManager.getLaunchIntentForPackage(pName)?.let {mIntent->
+                    startActivity(mIntent)
+                }
+            }
+        }
+
+        val cameraLayout = ImageView(this).apply {
+            id = View.generateViewId()
+            setImageResource(R.drawable.ic_camera_24)
+            layoutParams = RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.WRAP_CONTENT,
+                RelativeLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                addRule(RelativeLayout.ALIGN_PARENT_END)
+                addRule(RelativeLayout.CENTER_VERTICAL)
+                setMargins(16, 16, 16, 16)
+            }
+        }
+
+        cameraLayout.setOnClickListener {
+            getCameraPackageName()?.let {pName->
+                packageManager.getLaunchIntentForPackage(pName)?.let {mIntent->
+                    startActivity(mIntent)
+                }
+            }
+        }
+        shortcut.addView(phoneLayout)
+        shortcut.addView(cameraLayout)
+
+        layout.addView(shortcut)
         startUpdatingTimeAndBattery()
         val batteryIntentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         registerReceiver(batteryReceiver, batteryIntentFilter)
+    }
+
+    private fun getPhoneCallerPackageName(): String? {
+        val intent = Intent(Intent.ACTION_DIAL)
+        val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        return if (resolveInfo?.activityInfo != null) {
+            resolveInfo.activityInfo.packageName
+        } else null
+    }
+
+    private fun getCameraPackageName(): String? {
+        val intent = Intent("android.media.action.IMAGE_CAPTURE")
+        val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        return if (resolveInfo?.activityInfo != null) {
+            resolveInfo.activityInfo.packageName
+        } else null
     }
 
     override fun onResume() {
@@ -283,7 +358,7 @@ class StartLauncher : ComponentActivity() {
         return container
     }
 
-    private fun showPopupMenu(rootView: View, packageName: String,) {
+    private fun showPopupMenu(rootView: View, packageName: String) {
         val popupView = createPopupMenuView(rootView.context,
         {
             showAppInfo(rootView.context, packageName)
